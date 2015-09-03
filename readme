@@ -1,0 +1,321 @@
+               ?+++++++++++++++++++++++++++++++++++++++++++++++?
+              ]|[        [-=- SOLDIERX.COM Presents -=-]      ]|[
++++++++++++++++?+++++_________________________________________+++++?+++++++++++++++
+ \\//////////////////                 ArpUtils                \\\\\\\\\\\\\\\\\\//
+  \\\\\\\\\\\\\\\\\\\_________________________________________///////////////////
+   \\:::::::::::::::::::::::::::::::::: by ::::::::::::::::::::::::::::::::::://
+    \\xxxxxxxxxxxxxxxxxxxxxxxx?-=-][-xamnesiax-][-=-?xxxxxxxxxxxxxxxxxxxxxxxx//
+     \\:::::::::::::::::::::::::::::::: of ::::::::::::::::::::::::::::::::://
+      \\                            SOLDIERX.COM                           //
+       \\                         September,  2015                        //
+        \\            NOBODY CAN STOP INFORMATION INSEMINATION           //
+         ?=+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++=?
+                   
+      **********************************************************************
+      |  The author hereby grants permission to reproduce, redistribute,   |
+      |  or include this file in your file section, electronic or print    |
+      |  newletter, or any other form of transmission that you choose, as  |
+      |  long as it is kept intact and whole, with no ommissions, delet-   |
+      |  ions, or changes.  (C)2015 SOLDIERX.COM - http://www.soldierx.com |
+      |                E-mail -webmaster@soldierx.com		               |
+      **********************************************************************
+
+
+#  Author: xamnesiax
+#
+#  Description:
+#  ARP Utils is a project written and maintained by xamnesiax of SoldierX, which is designed
+#  to make the use of relatively advanced techniques such as ARP Spoofing easier to perform.
+#  ARP Utils, upon full release will consist of 3 or more main attacks. These attacks will 
+#  include: Man In The Middle (implemented), ARP Poisoning (Unimplemented), and DNS based
+#  phishing (Unimplemented). This tool will primarily aid in accssing data which otherwise
+#  would be hard to access, such as live DNS requests. Without these techniques, the attacked
+#  would have to have access to the router, which may be above the access level of a common 
+#  user.
+#
+#  This tool will also aid with the exfiltration of data from a victim via phishing, which is
+#  a technique that uses a cloned website to trick the victim in to disclosing private
+#  information - such as passwords, to the attacker. 
+#
+#
+#  To do:
+#
+#	1)Add in other attacks, and more options
+#     such as ARP Cache Poisoning, DNS
+#     base Phishing, amongst others.
+#
+#	2)Add support for the usage of multiple
+#     notations, to allow more varsatile
+#     specification of IP's and other data
+
+--+[INDEX]+--
+
+  [1] How To Use
+  [2] Requirements
+
+--=[INDEX]=--
+
+1) How To Use ArpUtils
+
+  OVERVIEW:
+    1) Use 'select' command to select attack (print to show available attacks).
+    2) Set options using 'set' command
+    3) Execute attack using 'perform' command
+    4) Profit...
+
+  COMMANDS:
+
+  There are several commands in ArpUtils, which serve different functions.
+  These can be invoked from the command line that is presented to you after
+  starting the program. Currently, these commands include:
+
+    SELECT:
+        The select command, is used to alter which attack you currently have selected. It
+        takes one operand, which should be of the type int. This integer correlates to
+        that of the ID of the attack which you want to select. You can view the available
+        attacks by typing "print" before you have selected an attack.
+
+    SET:
+        The set command is a crucial element of the ArpUtils framework - it allows you to
+        directly modify the data which is stored inside of the self.attacks structure. This
+        allows you to set and / or modify options that are available to you. The set command
+        takes 2 operands - destination, and value.
+
+        How to use SET:
+            The set and print commands can take special forms of arguments. The first of which,
+            is the variable "class" notation, which allows the user to alter sub-otions in the
+            self.attacks structure. It can be used like so:
+
+                "set DNSUtils.LogDNS true"
+
+            That command, will alter how the DNSUtils option works, writing the value 'true' to
+            the option, telling the program that you wish to log DNS requests for each IP to an
+            individual file.
+
+        Using SET with different data types as the operand:
+            The set command can parse data passed as an operand in many different ways depending
+            on which notations you need to use. The notations you can use depends largely on the
+            type of data that you are dealing with. NOTE: Currently, different notations cannot
+            be used in conjunction, and if not caught, may cause undefined behaviour.
+
+            BOOL:
+                Boolean data does not use any special notation; when using boolean data as an
+                operand, make sure th keep the "true" or "false" lower case.
+
+            LIST:
+                List objects can contain a multitude of data. Generally, however, due to the
+                nature of what they contain, they are restricted to only one type of data,
+                and stringent type checking occurs before data is inserted in to the list,
+                updating the struct.
+
+                Notable list types are as follows:
+
+                INT Lists:
+                    Integer lists are used to store ports and other integer data. Generally,
+                    special notations like range notation can be used, as well as comma notation
+                    to specify individual values. They work as follows:
+
+                    RANGE:
+                        "set TPorts 5-10"
+
+                        This will populate the TPorts list, with the integers which preside in the
+                        range of 5-10
+
+                    COMMA:
+                        "set TPorts 1,2,3,4,5,20"
+
+                        This will populate the TPorts list with each of the values separated by a comma.
+
+                        Note that there mus tbe no spaces between any of the data, otherwise it will be
+                        considered a third argument, and will not be processed.
+
+                        Also, sanctions may apply based on what the integers inside actually mean. If the
+                        list is a port list, then data entered MUST be within the range of 1-65535
+
+                STRING Lists:
+                    String lists are used to store data such as IP Addresses, interfaces, and other data
+                    which can only be represented as a string. This type of list also has special notations
+                    that can be used in conjunction with it. They are as follows:
+
+                    COMMA:
+                        As to be expected, the comma notation will allow specific data to be entered in to the
+                        list, populating the list with the data between the comma's, like so:
+
+                        "set Targets 192.168.0.2,192.168.0.3,192.168.0.5"
+
+                        This will create 3 separate elements in the list, each pertaining to an individual host
+                        to be targetted.
+
+                    RANGE:
+                        When specifying an IP Address list, the list can be populated using a range notation
+                        on the last octet. This notation allows for large chunks of IP Addresses to be specified
+                        without having to type each one, however, due to the lack of support for the use of
+                        multiple notations at once, this can often be too volatile. It is used like so:
+
+                        "set Targets 192.168.0.2-254"
+
+                        This will populate the Targets list with 253 IP Addresses, specified by creating a range
+                        in the last ocet. The IP octet will range from the lower to upper bound.
+
+                    CIDR:
+                        Again, when specifying an IP Address, the list can be populated by using CIDR notation.
+                        This notation accepts a prefix to any IP Address of a given subnet in the form of a "/"
+                        and then an integer between 24 and 32, and will return a list of hosts which are
+                        representative of the subnet that the CIDR notation describes. The integer prefixed to
+                        the IP Address denotes how much of the octets can be used as host addresses. A prefix
+                        of 24 will populate the Targets list with every IP Address between the bniary integer
+                        00000000, and 11111111, which is exactly 256 values. This is equivalent to doing
+                        "set Targets 192.168.0.0-255". CIDR notation works on the basis that the amount of bits
+                        that can be used for a host range, is equal to 32-<prefix int>, in the case of 24, this
+                        means that 8 bits are left to be used as hosts, which in binary can represent 256 values.
+                        As the prefix integer increases, the amount of addresses the Targets list is populated
+                        with will decrease by powers of two, from 2**8, to 2**0
+
+                    Individual IP Addresses can also be set by using the following command:
+
+                        "set Targets 192.168.0.2"
+
+
+
+    PRINT:
+        The print command is yet another crucial command in the ArpUtils framework - it allows you to
+        print the data from within the structure to the screen. It can be used in one of two ways.
+        The first way, is without arguments - without arguments, the print function will recursively
+        go through the whole struct, enumerating it, and printing out the name, value, and description
+        of every option in the struct itself. The level of indentation tells you whether an option is
+        a chald of another option, multiple indentations means that you will have to use class notation
+        to access, and set or print the variable
+
+        The second way to use the print command, is to use it with a single argument. This argument
+        specifies which variable it is that you wish to print to the screen. This method can be used
+        in one of two ways. Either in the "direct" mode, in which you directly alter a variable by
+        using its name, or in the 'class' mode, in which you must specify each of the parent classes
+        before reaching the variable that you wish to alter. This can be done like so:
+
+            "print DNSUtils"
+
+              or
+
+            "print DNSUtils.LogDNS.PrintDNS"
+
+        The print command also allows the user to display which attacks are currently available for use
+        in the framework. This functionality can be invoked by using the command:
+
+            "print attacks"
+
+
+    SCAN:
+        The purpose of the scan command, is to send out ARP ping packets to all of the hosts associated
+        with the gateway specified by the "Gateway" option. It will do so on the interface specified by
+        the "Iface" option. These options do not need to be manually set unless the automatic retrieval
+        of the values fails, in which the user will be notified. Automatic retrieval occurs by reading 
+        the /proc/net/route device.
+
+    PERFORM:
+        The perform command, is the command that tells ArpUtils to take the options that have been set,
+        and start the attack that the user selected. This command will load the corresponding class,
+        which will carry out all necessary functions before starting the attack, which will use the
+        options specified in the attack struct, to choose whether or not to record data, where to store
+        it, what hosts to target with an attack, and the likes.
+
+    CLEAR:
+        The clear command is quite self explanatory, is uses the os.system command to call linux's "clear"
+        command, clearing the screen of any data that you don't wish to see.
+
+    HELP:
+        The help command will display an extremely limited version of this README, detailing what commands
+        are available, their names, and what it is that they do.
+
+
+  OPTIONS:
+    There are also several main options stored in the attack struct, which will alter the way the program
+    behaves. They are as follows:
+
+    TARGETS:
+        The targets option is defined as a string list, which will store the IP Addresses of any hosts that
+        the user wishes to target with an attack.
+
+        NOTATIONS:
+            Single
+            Comma
+            Range
+            CIDR
+
+        Type: STR
+        Default: []
+
+    DNSUtils:
+        The DNSUtils option is an option which has quite a few sub optiojns available, which define how the
+        program is to behave when it encounters a DNS packet sniffed from the network. Setting DNSUtils to
+        false will disable all of the sub options which are children of it. The sub-options are as follows:
+
+        Type: BOOL
+        Default: True
+
+        LogDNS:
+            The LogDNS option defines whether or not the program should keep a record of DNS requests made
+            by hosts targetting by the ARP Spoofing Attack (MITM), defining whether or no they should be
+            stored in a file which is names using their IP.
+
+            Type: BOOL
+            Default: True
+
+        PrintDNS:
+            The PrintDNS option defines whether or not the program should print out the hostname that the
+            DNS is making a query for, when the packet arrives, or whether is should just store it in the
+            file and continue.
+
+            Type: BOOL
+            Default: False
+
+            UniqueOnly:
+                The UniqueOnly option defines whether or not the program should print out hostnames that
+                have already been printed and recorded to the file, or whether it should just let it pass
+                silently.
+
+                Type: BOOL
+                Default: True
+
+
+  Variables:
+
+    Iface:
+        The Iface option stores the name of the interface that the user wishes to use to send and recieve the
+        packets.
+
+        Type: STR
+        Default: 'eth0' (Updated automatically in most cases)
+
+    Gateway:
+        The Gateway option stores the IP Address of the gateway of the network. This is used in order to spoof
+        the gateway in to sending all of the network data to us, instead of directly to the clients.
+
+        Type: STR
+        Default: '' (Updated automatically in most cases)
+
+    Path:
+        The Path option should contain a path which describes the location on the filesystem that all of the
+        files generated by the program should be written to. Files such as the DNS log files and PCAP file
+        will be written to this location.
+
+        Type: STR
+        Default: './ARP-SP-<DD>\<MM>\<YY>-<HH>:<MM>:<SS>/'
+
+    Pcap:
+        The Pcap option will contain the name of the pcap file that will be written in to the folder specified
+        by the Path option.
+
+        Type: STR
+        Default: 'capture.pcap'
+
+
+2) Requirements
+  
+  ArpUtils requires two main components to function correctly:
+
+    1) Linux. Due to dependency on /proc/net/route and iptables, 
+       this program currently only works on Linux and Unix 
+       operating systems.
+
+    2) Scapy. Scapy is the library that allows Python to create, 
+       read, and otherwise modify packets in a high-level fashion.
