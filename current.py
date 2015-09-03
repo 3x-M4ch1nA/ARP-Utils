@@ -373,7 +373,7 @@ class ArpUtils(object):
                         print(qname)
 
                 # Get time and date for use in DNS log file.
-                fnow = datetime.datetime.now().strftime('%d\%m\%y-%H-%M-%S')
+                fnow = datetime.datetime.now().strftime('%d\%m\%y-%H:%M:%S')
 
                 # Write to DNS log file.
                 with open(os.path.abspath('%s/%s' % (path, ip)), 'a+') as handle:
