@@ -338,7 +338,7 @@ class ArpUtils(object):
                         desthosts = get_ip(interface)
                     except:
                         raise Exception('Network connection no longer found.')
-                    
+
                 if (len(desthosts) == 1) and len(destports) > 1:
                     desthosts = desthosts[0]
 
@@ -482,10 +482,6 @@ class ArpUtils(object):
 
                 return filter_string
 
-            def exit(self):
-                self.handle.close()
-                thread.exit_thread()
-
             # Main function of the SniffPackets class. This function
             # is responsible for the actual capturing, logging, and
             # parsing of the raw packet data.
@@ -515,7 +511,7 @@ class ArpUtils(object):
 
                 while True:
                     if ExitQueue.full():
-                        self.exit()
+                        break
 
                     pkt = sniff(filter=pkt_filter, iface=self.attack['Options']['iface']['Value'], count=1,
                                 prn=self.filter_packets)
@@ -524,8 +520,6 @@ class ArpUtils(object):
                     self.handle.flush()
 
                 self.handle.close()
-
-                print('Stopping attack.')
                 return
 
         # Main function of the ArpSpoof class. This function
@@ -534,6 +528,8 @@ class ArpUtils(object):
         # selected targets.
 
         def cleanup(self, target_list):
+
+            # Send an ARP packet to each target, correcting their ARP cache
             for target in target_list:
                 for host in self.attack['Vars']['live_hosts']:
                     if target == host['IP']:
@@ -575,9 +571,7 @@ class ArpUtils(object):
                 sniffer_thread.exit()
                 return
 
-    # This function of the ArpUtils class is responsible for
-    # selecting an attack to use.
-
+    # Command used to select attacks
     def __command_select(self, command):
         if len(command) < 1:
             raise Exception('Select command requires one argument. (select <id>)')
@@ -597,15 +591,12 @@ class ArpUtils(object):
         self.selected = command[0]
         self.attack = self.attacks[self.selected]
 
-        #print('Attack with id \'%d\', selected (%s)' % (command[0], self.attack['Description']))
         self.attack['Options']['gateway']['Value'] = self.gateway
         self.attack['Options']['iface']['Value'] = self.iface
 
         return
 
-    # This function of the ArpUtils class is responsible for
-    # writing data to the attack struct
-
+    # Modify attack struct
     def __command_set(self, command):
         if self.selected is None:
             raise Exception('%sSelect%s an %sattack%s before using the \'set\' command.' % (BLUE, END, GREEN, END))
@@ -710,7 +701,7 @@ class ArpUtils(object):
                         else:
                             raise Exception('Input is not an integer or in a valid sequence notation (\'-\' / \',\')')
 
-                # If the list 'type' is str
+                # If the list 'type' is str, parse possible notations
                 elif arr_type == str:
                     if command[1].find(',') != -1:
                         target_list = []
@@ -733,6 +724,7 @@ class ArpUtils(object):
 
                         option['Value'] = target_list
 
+                    # If a range is found
                     elif command[1].find('-') != -1:
                         if command[1].find('/') != -1:
                             raise Exception('Range and CIDR notations cannot be used in conjunction.')
@@ -791,9 +783,7 @@ class ArpUtils(object):
         else:
             raise Exception('Option \'%s\', does not exist.' % command[0])
 
-    # This function of the ArpUtils class is responsible for
-    # printing data from the attack struct.
-
+    # Display data from struct
     def __command_print(self, command):
 
         if len(command) == 0:
@@ -838,10 +828,7 @@ class ArpUtils(object):
         elif command[0] in options:
             print('%s%s%s' % (BLUE, self.wrapped_list(options[command[0]]), END))
 
-    # This function of the ArpUtils class is responsible for
-    # scanning the subnet for live hosts which can be
-    # targeted.
-
+    # Scan subnet for live hosts
     def __command_scan(self, *param):
         del param
 
@@ -861,9 +848,7 @@ class ArpUtils(object):
 
         self.attack['Vars']['live_hosts'] = self.live_hosts
 
-    # This function of the ArpUtils class is responsible for
-    # printing help about the ArpUtils.py to the screen.
-
+    # Display a help dialogue
     def __command_help(self, *param):
         del param
 
@@ -874,9 +859,7 @@ class ArpUtils(object):
                     print('\n%s%s%s\n%s' % (BLUE, command['Name'], END, command['Description']))
                     i += 1
 
-    # This function of the ArpUtils class is responsible for
-    # clearing the screen while using the program.
-
+    # Clear screen
     @staticmethod
     def __command_clear(*param):
         del param
@@ -886,10 +869,7 @@ class ArpUtils(object):
         elif os.name == 'nt':
             os.system('cls')
 
-    # This function of the ArpUtils class is responsible for
-    # initialising the selected attack, with the specified
-    # options.
-
+    # Start selected attack with modified option struct
     def __command_perform(self, attack, interface, gateway):
         if self.selected is None:
             raise Exception('%sSelect%s an %sattack%s before using the \'perform\' command.' % (BLUE, END, GREEN, END))
@@ -902,10 +882,7 @@ class ArpUtils(object):
 
         ExitQueue.put('EXIT')
 
-    # This function of the ArpUtils class is responsible for
-    # creating a 'wrapped list' from a list which is larger
-    # than 6 elements long.
-
+    # Wrap a long list so printing it does not spam the screen
     @staticmethod
     def wrapped_list(option):
         if option['Type'] is list:
@@ -1032,9 +1009,6 @@ class ArpUtils(object):
                 self.recursive_print(option['Options'], tabbing + 1)  # Recursively call own function with new values.
 
             i += 1
-            #if tabbing == 0:
-            #    print('__________________________________________________'
-            #          '________________________________________')
 
     # This function of the ARP Utils class is responsible for parsing
     # the set command's class notation, recursing through the struct
@@ -1078,7 +1052,7 @@ class ArpUtils(object):
             ))
 
     # This function of the ARP Utils class is responsible for enumerating
-    # the /proc/net/route device file, in order to find out which interface
+    # the /proc/net/route device file in order to find out which interface
     # is currently being used the most, and what the gateway IP of that
     # interface is. This allows the automation of the target scan, which
     # scans the network for potential targets. If this fails, you will
@@ -1151,13 +1125,7 @@ class ArpUtils(object):
             try:
                 self.iface, self.gateway = self.get_gateway_and_iface()
             except:
-                pass
-                #print('Could not find default gateway. Do you have network access?')
-                #return
-
-            #self.live_hosts = self.scan(interface=self.iface, gateway=self.gateway)  # Removed at the request
-                                                                                      # of Ogma until further
-                                                                                      # notice.
+                raise Exception('Could not find default gateway. Do you have network access?')
 
         try:
             inet_aton(self.gateway)
