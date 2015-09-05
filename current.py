@@ -1,5 +1,7 @@
 from socket import inet_aton, inet_ntoa
+from os import system
 from time import sleep
+import subprocess
 import threading
 import datetime
 import logging
@@ -131,6 +133,40 @@ class ArpUtils(object):
                         'Description': 'File name for packet capture file.',
                         'Type': str,
                         'Value': None
+                    },
+
+                    'redirect': {
+                        'Name': 'Redirect',
+                        'Description': 'Redirect connections between ports or hosts',
+                        'Type': bool,
+
+                        'Options': {
+                            'desthosts': {
+                                'Name': 'Desthosts',
+                                'Description': 'Hosts to redirect connections to',
+                                'ArrType': (str, 'ip'),
+                                'Type': list,
+                                'Value': []
+                            },
+
+                            'targetports': {
+                                'Name': 'Targetports',
+                                'Description': 'Ports to redirect',
+                                'ArrType': (str, 'port'),
+                                'Type': list,
+                                'Value': []
+                            },
+
+                            'destports': {
+                                'Name': 'Destports',
+                                'Description': 'Destination ports',
+                                'ArrType': (str, 'port'),
+                                'Type': list,
+                                'Value': []
+                            }
+                        },
+
+                        'Value': False
                     }
                 }
             }
@@ -285,6 +321,46 @@ class ArpUtils(object):
                 else:
                     raise Exception('Please set interface and gateway options using the set command.')
 
+            targetports = self.attack['Options']['redirect']['Options']['targetports']['Value']
+            destports = self.attack['Options']['redirect']['Options']['destports']['Value']
+            desthosts = self.attack['Options']['redirect']['Options']['desthosts']['Value']
+            interface = self.attack['Options']['iface']['Value']
+
+            if self.attack['Options']['redirect']['Value'] is True:
+                if (len(targetports) == 0) or (len(destports) == 0):
+                    raise Exception('Both targetports and destports must have at least one port.')
+
+                if len(targetports) != len(destports):
+                    raise Exception('Targetports option must have the same amount of arguments as destports.')
+
+                if len(desthosts) == 0:
+                    try:
+                        desthosts = get_ip(interface)
+                    except:
+                        raise Exception('Network connection no longer found.')
+                if (len(desthosts) == 1) and len(destports) > 1:
+                    desthosts = desthosts[0]
+
+                    print(desthosts)
+
+                system(
+                    'sudo /sbin/iptables --flush && sudo /sbin/iptables -t nat --flush && sudo /sbin/iptables --zero && sudo /sbin/iptables -A FORWARD --in-interface %s -j ACCEPT && sudo /sbin/iptables -t nat --append POSTROUTING --out-interface %s -j MASQUERADE' % (
+                        interface, interface))
+
+                for port in targetports:
+                    if type(desthosts) is list:
+                        system(
+                            'sudo /sbin/iptables -t nat -A PREROUTING --in-interface %s -p tcp --dport %d '
+                            '-j DNAT --to-destination %s:%d'
+                            % (interface, int(port), desthosts[targetports.index(port)], int(destports[targetports.index(port)]))
+                        )
+                    else:
+                        system(
+                            'sudo /sbin/iptables -t nat -A PREROUTING --in-interface %s -p tcp --dport %d '
+                            '-j DNAT --to-destination %s:%d'
+                            % (interface, int(port), desthosts, int(destports[targetports.index(port)]))
+                        )
+
             self.run()
 
         class SniffPackets(threading.Thread):
@@ -302,11 +378,10 @@ class ArpUtils(object):
 
                 # If OS is unix based, enable IPv4 packet forwarding.
 
-                if os.name == 'posix':
-                    with open('/proc/sys/net/ipv4/ip_forward', 'w') as handle:
-                        handle.write('1')
-                        handle.flush()
-                    handle.close()
+                with open('/proc/sys/net/ipv4/ip_forward', 'w') as handle:
+                    handle.write('1')
+                    handle.flush()
+                handle.close()
 
                 self.attack = attack
                 self.handle = None
@@ -721,7 +796,7 @@ class ArpUtils(object):
     def __command_print(self, command):
 
         if len(command) == 0:
-            if self.selected != None:
+            if self.selected is not None:
                 self.new_option_print(self.attack['Options'])
                 return
 
@@ -822,6 +897,8 @@ class ArpUtils(object):
 
     @staticmethod
     def __command_quit(*param):
+        del param
+
         ExitQueue.put('EXIT')
 
     # This function of the ArpUtils class is responsible for
@@ -899,14 +976,30 @@ class ArpUtils(object):
                           str(options['path']['Value']),
                           str(options['pcap']['Value']),
                           str(self.wrapped_list(options['targets']))
-                        ))
+                          ))
+
+        if options['redirect']['Value'] is True:
+            print('\nRedirect Variables:\n'
+                  '  Destination Hosts:\n'
+                  '    %s\n\n'
+                  '  Target Ports:\n'
+                  '    %s\n\n'
+                  '  Destination Ports:\n'
+                  '    %s' % (str(self.wrapped_list(options['redirect']['Options']['desthosts'])),
+                              str(self.wrapped_list(options['redirect']['Options']['targetports'])),
+                              str(self.wrapped_list(options['redirect']['Options']['destports']))
+                              ))
 
         print('\nOptions:\n')
         self.recursive_print(options, 1)
 
-    def recursive_print(self, optlist, tabbing):
-        if 'dnsutils' in optlist:
-            optlist = {'dnsutils': optlist['dnsutils']}
+    def recursive_print(self, optlist1, tabbing):
+        optlist = optlist1
+
+        if 'dnsutils' and 'redirect' in optlist:
+
+            #del optlist['redirect']['Options']
+            optlist = {'dnsutils': optlist['dnsutils'], 'redirect': optlist['redirect']}
 
         i = 0
         for key, option in optlist.iteritems():
@@ -1006,7 +1099,6 @@ class ArpUtils(object):
 
     def scan(self, gateway='', interface=''):
         global RouterInfo
-
         if gateway == '':
             if self.attack['Options']['gateway']['Value'] == '':
                 raise Exception('Please set gateway before scanning')
@@ -1040,7 +1132,7 @@ class ArpUtils(object):
                     'IP': response.sprintf('%ARP.psrc%')
                 }
 
-        if live_hosts == []:
+        if live_hosts is []:
             print('No hosts detected on network, other than you and the gateway. Exiting scan.')
             return
 
@@ -1103,6 +1195,14 @@ class ArpUtils(object):
                 print(ex.message)
 
 
+def get_ip(interface):
+    output = list(subprocess.Popen(['ifconfig'], stdout=subprocess.PIPE).communicate())[0]
+
+    ip = re.findall('%s.*inet addr:(.*?) ' % interface, output, re.DOTALL)
+
+    return ip[0]
+
+
 def lower(s):
     return s.lower()
 
@@ -1112,6 +1212,10 @@ def handler(*s):
 
 
 if __name__ == '__main__':
+    if os.name != 'posix':
+        print('This program can ony run in unix environments.')
+        exit(-1)
+
     if os.geteuid() != 0:
         print('Please run ArpUtils as root!')
         exit(-1)
