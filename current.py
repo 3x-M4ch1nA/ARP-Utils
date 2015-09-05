@@ -338,6 +338,7 @@ class ArpUtils(object):
                         desthosts = get_ip(interface)
                     except:
                         raise Exception('Network connection no longer found.')
+                    
                 if (len(desthosts) == 1) and len(destports) > 1:
                     desthosts = desthosts[0]
 
