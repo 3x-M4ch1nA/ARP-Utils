@@ -40,22 +40,35 @@
 #
 #  To do:
 #
-#	1)Add in other attacks, and more options
-#     such as ARP Cache Poisoning, DNS
-#     base Phishing, amongst others.
+#	1) Add in other attacks, and more options
+#      such as ARP Cache Poisoning, DNS
+#      based Phishing, amongst others.
 #
-#	2)Add support for the usage of multiple
-#     notations, to allow more varsatile
-#     specification of IP's and other data
+#	2) Add support for the usage of multiple
+#      notations, to allow more varsatile
+#      specification of IP's and other data
+#
+#   3) Rewrite messy code in the _command_set
+#      function.
 
 --+[INDEX]+--
 
-  [1] How To Use
-  [2] Requirements
+  [1] Requirements
+  [2] How To Use
 
 --=[INDEX]=--
 
-1) How To Use ArpUtils
+1) Requirements
+  
+  ArpUtils requires two main components to function correctly:
+
+    1) Linux. Due to dependency on iptables, this program currently
+       only supports linux or unix environments which use iptables.
+
+    2) Scapy. Scapy is the library that allows Python to create,
+       read, and otherwise modify packets in a high-level fashion.
+
+2) How To Use ArpUtils
 
   OVERVIEW:
     1) Use 'select' command to select attack (print to show available attacks).
@@ -245,7 +258,7 @@
         Default: []
 
     DNSUtils:
-        The DNSUtils option is an option which has quite a few sub optiojns available, which define how the
+        The DNSUtils option is an option which has quite a few sub options available which define how the
         program is to behave when it encounters a DNS packet sniffed from the network. Setting DNSUtils to
         false will disable all of the sub options which are children of it. The sub-options are as follows:
 
@@ -276,6 +289,33 @@
                 Type: BOOL
                 Default: True
 
+    Redirect:
+        The Redirect option dictates whether the program will attempt to redirect packets destined to
+        certain ports to different ports / hosts. This allows for DNS based phishing attacks and general
+        redirection of packets.
+
+        Type: BOOL
+        Default: False
+
+        Desthosts:
+            The Desthosts option dictates which host the packets will be forwarded to. By default, this
+            will resolve to the private IP of the attacking host.
+
+            Type: LIST
+            Default: <attacker IP>
+
+        Targetports:
+            The Targetports option dictates which ports will be subject to forwarding
+
+            Type: LIST
+            Default: []
+
+        Destports:
+            The Destports option dictates which port the data intercepted from ports in
+            the Targetports option will be sent to.
+
+            Type: LIST
+            Default: []
 
   Variables:
 
@@ -307,15 +347,3 @@
 
         Type: STR
         Default: 'capture.pcap'
-
-
-2) Requirements
-  
-  ArpUtils requires two main components to function correctly:
-
-    1) Linux. Due to dependency on /proc/net/route and iptables, 
-       this program currently only works on Linux and Unix 
-       operating systems.
-
-    2) Scapy. Scapy is the library that allows Python to create, 
-       read, and otherwise modify packets in a high-level fashion.
