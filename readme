@@ -29,7 +29,7 @@
 #  ARP Utils, upon full release will consist of 3 or more main attacks. These attacks will 
 #  include: Man In The Middle (implemented), ARP Poisoning (Unimplemented), and DNS based
 #  phishing (Unimplemented). This tool will primarily aid in accssing data which otherwise
-#  would be hard to access, such as live DNS requests. Without these techniques, the attacked
+#  would be hard to access, such as live DNS requests. Without these techniques, the attacker
 #  would have to have access to the router, which may be above the access level of a common 
 #  user.
 #
